@@ -1,0 +1,473 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Bulk cook rotation</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Figtree:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+
+:root{
+  --display:"Bricolage Grotesque","Trebuchet MS",system-ui,sans-serif;
+  --body:"Figtree",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  color-scheme:dark;
+  --paper:#0F1215; --surface:#171B20; --ink:#E8EAEC; --ink-soft:#98A2AC; --line:#262C33; --sel:rgba(232,234,236,.07);
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+/* meal colors: rice, spaghetti, potato, simple. -ink = text on that color */
+:root,:root[data-palette="ochre"]{
+  --rice:#D4A648; --rice-ink:#1A1300; --spag:#C9705F; --spag-ink:#1F0906; --pot:#9C88C8; --pot-ink:#150E28; --simple:#4FA89E; --simple-ink:#03201C;
+}
+:root[data-palette="jewel"]{
+  --rice:#E3B33F; --rice-ink:#1A1300; --spag:#D95F84; --spag-ink:#250611; --pot:#8A7EEA; --pot-ink:#0E0B2B; --simple:#3DB8AE; --simple-ink:#032320;
+}
+html{scroll-padding-top:env(safe-area-inset-top,0px);background:var(--paper)}
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--body);font-size:1rem;line-height:1.5}
+main{max-width:980px;margin:0 auto;padding:28px 18px 64px}
+h1,h2,h3{font-family:var(--display);margin:0;line-height:1.05}
+h1{font-size:clamp(2.3rem,7vw,3.8rem);font-weight:800;letter-spacing:-.025em}
+h2{font-size:1.6rem;font-weight:700;letter-spacing:-.01em;margin-bottom:6px}
+h3{font-size:1.4rem;font-weight:700}
+section{margin-top:56px}
+.hint{color:var(--ink-soft);margin:0 0 18px;max-width:60ch}
+button{font:inherit;color:inherit;cursor:pointer}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+:focus-visible{outline:3px solid var(--simple);outline-offset:2px}
+
+/* header */
+.rule{display:inline-block;margin:18px 0 0;padding:12px 18px;border-radius:12px;background:var(--surface);color:var(--ink);border-left:4px solid var(--rice);font-weight:600;max-width:34rem}
+
+/* chips */
+.chip{display:inline-block;padding:6px 14px;border-radius:999px;font-weight:600;font-size:.95rem;white-space:nowrap}
+.c-rice{background:var(--rice);color:var(--rice-ink)}
+.c-spag{background:var(--spag);color:var(--spag-ink)}
+.c-pot{background:var(--pot);color:var(--pot-ink)}
+.c-simple{background:var(--simple);color:var(--simple-ink)}
+
+/* rotation lanes */
+.rot{display:grid;grid-template-columns:4.4rem repeat(5,minmax(0,1fr));margin-top:8px}
+.wkbtn{grid-row:1;margin:0 3px;padding:10px 0;border:1px solid var(--line);border-bottom:0;border-radius:10px 10px 0 0;background:var(--surface);font-weight:600;font-size:.9rem}
+.wkbtn[aria-pressed="true"]{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.lane-label{grid-column:1;display:flex;align-items:center;font-weight:700;font-size:.92rem;border-top:1px solid var(--line);min-height:58px}
+.cell{border-top:1px solid var(--line);min-height:58px;transition:background .2s}
+.cell.sel{background:var(--sel)}
+.bar{z-index:1;margin:9px 3px;border-radius:8px;display:flex;align-items:center;padding:0 10px;font-weight:700;transform-origin:left center;transition:opacity .2s;animation:grow .55s cubic-bezier(.2,.7,.2,1) both}
+.bar::before{content:"";width:9px;height:9px;border-radius:50%;background:currentColor;margin-right:8px;flex:none}
+.bar.dim{opacity:.35}
+.rot-foot{display:flex;flex-wrap:wrap;gap:6px 22px;margin-top:12px;color:var(--ink-soft);font-size:.92rem}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--ink);margin-right:6px}
+@keyframes grow{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+
+/* week detail */
+.detail{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,6fr);gap:22px;margin-top:26px;align-items:start}
+.panel{background:var(--surface);border-radius:16px;padding:22px}
+.panel dl{margin:16px 0 0}
+.panel dt{font-weight:700;font-size:.9rem;color:var(--ink-soft);margin-top:14px}
+.panel dd{margin:2px 0 0;font-weight:600}
+.eat{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.legend{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;margin:10px 0 14px;font-size:.92rem;color:var(--ink-soft)}
+table{width:100%;border-collapse:separate;border-spacing:0 6px}
+caption{text-align:left;font-family:var(--display);font-weight:700;font-size:1.4rem;color:var(--ink);padding-bottom:2px}
+th,td{padding:0;text-align:left}
+thead th{font-size:.85rem;font-weight:600;color:var(--ink-soft);padding:0 4px 2px}
+tbody th{font-weight:700;width:4.6rem;padding-right:8px;vertical-align:middle}
+td{padding:0 3px}
+td .chip{display:block;text-align:center;border-radius:10px;padding:8px 6px}
+tr.today th::after{content:"today";display:block;font-size:.72rem;font-weight:600;color:var(--simple)}
+
+/* food system */
+.mains{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.food{padding:24px;border-radius:20px}
+.food.rice{background:var(--rice);color:var(--rice-ink)}
+.food.spag{background:var(--spag);color:var(--spag-ink)}
+.food.pot{background:var(--pot);color:var(--pot-ink);grid-column:1/-1;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.4fr);gap:12px 28px}
+.food h3{font-size:1.9rem;margin-bottom:12px}
+.food .k{font-weight:700;font-size:.9rem;margin:16px 0 8px;opacity:.9}
+.food ul{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:8px}
+.food li{padding:6px 13px;border-radius:999px;font-weight:500;font-size:.95rem;background:color-mix(in srgb,currentColor 16%,transparent)}
+.food p{margin:0}
+.food .note{margin-top:16px;font-size:.95rem}
+.adds{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-top:16px}
+.adds .panel{border-radius:12px;padding:18px 20px}
+.adds h3{font-size:1.15rem;margin-bottom:6px}
+.adds p{margin:0;color:var(--ink-soft)}
+
+/* simple foods */
+.simple{background:var(--simple);color:var(--simple-ink);border-radius:20px;padding:26px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:22px}
+.simple h3{font-size:1.3rem;margin-bottom:10px}
+.simple ul{margin:0;padding:0;list-style:none;display:grid;gap:6px}
+.simple li{padding-left:16px;position:relative}
+.simple li::before{content:"";position:absolute;left:0;top:.6em;width:7px;height:7px;border-radius:50%;background:currentColor;opacity:.7}
+
+/* layers */
+.layers{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.layer{background:var(--surface);border-radius:12px;padding:0 16px 16px;overflow:hidden}
+.layer::before{content:"";display:block;height:8px;margin:0 -16px 14px}
+.l-main::before{background:linear-gradient(90deg,var(--rice) 50%,var(--spag) 50%)}
+.l-sup::before{background:var(--pot)}
+.l-pro::before{background:var(--ink)}
+.l-quick::before{background:var(--simple)}
+.layer h3{font-size:1.1rem;margin-bottom:4px}
+.layer p{margin:0;color:var(--ink-soft);font-size:.95rem}
+
+/* stock */
+.stock-head{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:8px}
+.reset{background:none;border:1px solid var(--line);border-radius:999px;padding:6px 14px;font-size:.9rem;font-weight:500}
+.stock{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:22px;margin-top:8px}
+.stock h3{font-size:1.1rem;margin-bottom:8px;padding-bottom:8px;border-bottom:2px solid var(--ink-soft)}
+.stock label{display:flex;align-items:center;gap:10px;padding:6px 0;cursor:pointer}
+.stock input{width:18px;height:18px;accent-color:var(--simple);flex:none}
+.stock input:checked+span{text-decoration:line-through;color:var(--ink-soft)}
+.stocknote{margin:18px 0 0;color:var(--ink-soft)}
+
+/* rules */
+.rules{margin:0;padding:0;list-style:none;display:grid;gap:10px;counter-reset:r}
+.rules li{background:var(--surface);border-radius:12px;padding:14px 18px;font-weight:600;border-left:8px solid var(--ink)}
+.rules li:nth-child(1){border-color:var(--rice)}
+.rules li:nth-child(2){border-color:var(--pot)}
+.rules li:nth-child(3){border-color:var(--simple)}
+.rules li:nth-child(4){border-color:var(--spag)}
+
+/* color picker */
+.picker{margin-top:26px}
+.picker-head{display:flex;align-items:baseline;gap:6px 14px;flex-wrap:wrap;margin-bottom:10px}
+.picker-head h2{font-size:1.05rem;margin:0}
+.picker-head span{color:var(--ink-soft);font-size:.9rem}
+.cards{display:flex;flex-wrap:wrap;gap:10px}
+.pcard{flex:0 0 138px;text-align:left;padding:8px;background:var(--surface);border:1px solid var(--line);border-radius:14px;display:block}
+.pcard:hover{border-color:var(--ink-soft)}
+.pcard[aria-checked="true"]{border-color:var(--ink);box-shadow:0 0 0 1px var(--ink)}
+.pv{display:grid;align-content:center;gap:5px;height:58px;padding:9px;border-radius:9px;background:#0B0D10;position:relative}
+.pv i{display:block;height:7px;border-radius:4px}
+.pv i:nth-child(1){width:72%;background:var(--c1)}
+.pv i:nth-child(2){width:58%;margin-left:22%;background:var(--c2)}
+.pv i:nth-child(3){width:46%;margin-left:44%;background:var(--c3)}
+.pv b{position:absolute;top:9px;right:9px;width:8px;height:8px;border-radius:50%;background:var(--c4)}
+.pn{display:flex;align-items:center;justify-content:space-between;margin-top:9px;font-weight:700;font-size:.95rem}
+.ps{display:block;font-size:.8rem;color:var(--ink-soft)}
+.tick{display:none;width:18px;height:18px;border-radius:50%;background:var(--ink);color:var(--paper);font-size:.68rem;align-items:center;justify-content:center}
+.pcard[aria-checked="true"] .tick{display:inline-flex}
+@media (max-width:620px){.pcard{flex:1 1 calc(33% - 10px);min-width:104px}}
+
+@media (max-width:820px){
+  .detail{grid-template-columns:minmax(0,1fr)}
+  .layers{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .stock{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .simple{grid-template-columns:minmax(0,1fr)}
+  .food.pot{grid-template-columns:minmax(0,1fr)}
+}
+@media (max-width:620px){
+  .mains,.adds{grid-template-columns:minmax(0,1fr)}
+  .rot{grid-template-columns:3.6rem repeat(5,minmax(0,1fr))}
+  .lane-label{font-size:.8rem}
+  .wkbtn{margin:0 2px;font-size:.8rem}
+  .bar{margin:9px 2px;padding:0 7px}
+  .bar::before{margin-right:5px}
+  main{padding-top:20px}
+}
+@media (prefers-reduced-motion:reduce){
+  .bar{animation:none}
+  .cell,.bar{transition:none}
+}
+</style>
+<script>
+(function(){var p=null;try{p=JSON.parse(localStorage.getItem('mealplan-palette'))}catch(e){}
+if(['ochre','jewel'].indexOf(p)<0)p='ochre';
+document.documentElement.setAttribute('data-palette',p);})();
+</script>
+</head>
+<body>
+<main>
+
+<header>
+  <h1>Bulk cook rotation</h1>
+  <p class="rule">Start cooking the next main when the current one enters week 2.</p>
+  <div class="picker" role="radiogroup" aria-label="Colors">
+    <div class="picker-head"><h2>Colors</h2><span>Hover to preview, click to keep</span></div>
+    <div class="cards" id="cards"></div>
+  </div>
+</header>
+
+<section id="rotation" aria-labelledby="rot-h">
+  <h2 id="rot-h">Five-week cycle</h2>
+  <p class="hint">Pick a week to see what you're eating and how the day is laid out.</p>
+  <div class="rot" id="rot" role="group" aria-label="Weeks"></div>
+  <div class="rot-foot">
+    <span><span class="dot"></span>cook day</span>
+    <span>Bar = how long that batch lasts</span>
+    <span>After week 5, go back to week 2.</span>
+  </div>
+
+  <div class="detail">
+    <div class="panel">
+      <h3 id="wk-title">Week 2</h3>
+      <div class="eat" id="wk-eat"></div>
+      <dl>
+        <dt>Cook</dt><dd id="wk-cook"></dd>
+        <dt>Note</dt><dd id="wk-note"></dd>
+      </dl>
+    </div>
+    <div>
+      <div class="legend" id="legend"></div>
+      <table>
+        <caption>Daily timetable</caption>
+        <thead><tr><th scope="col"><span class="sr">Day</span></th><th scope="col">Work, 12 to 1 PM</th><th scope="col">Home, 6 to 9 PM</th></tr></thead>
+        <tbody id="tt"></tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section aria-labelledby="food-h">
+  <h2 id="food-h">The three bulk meals</h2>
+  <p class="hint">Rice and spaghetti are the mains. Potato porridge is the support act and never gets its own week.</p>
+  <div class="mains">
+    <article class="food rice">
+      <h3>Rice</h3>
+      <p class="k">Base</p>
+      <ul><li>Nigerian jollof rice</li><li>Soy / fried rice</li><li>Rice + mixed vegetables + diced meat</li></ul>
+      <p class="k">Flavour</p>
+      <ul><li>Nigerian: tomato, curry, thyme, paprika, seasoning</li><li>Asian: soy + dark soy + oyster / teriyaki</li></ul>
+    </article>
+    <article class="food spag">
+      <h3>Spaghetti</h3>
+      <p class="k">Base</p>
+      <ul><li>Jollof spaghetti</li><li>Teriyaki / honey-garlic spaghetti</li><li>Soy spaghetti</li><li>Spaghetti + vegetables + diced meat</li></ul>
+      <p class="note">Strongest stock position: plenty of spaghetti, macaroni and every sauce already on hand.</p>
+    </article>
+    <article class="food pot">
+      <div>
+        <h3>Potato porridge</h3>
+        <p class="note" style="margin-top:0">Supporting bulk meal. Paired with whichever main is being eaten, in a smaller batch.</p>
+      </div>
+      <div>
+        <p class="k" style="margin-top:0">Made with</p>
+        <ul><li>Potato</li><li>Diced meat</li><li>Frozen mixed vegetables</li><li>Celery / bell pepper mix</li><li>Nigerian seasoning / spices</li></ul>
+      </div>
+    </article>
+  </div>
+  <div class="adds">
+    <div class="panel">
+      <h3>Vegetables, always on hand</h3>
+      <p>Frozen mixed vegetables (carrot, green beans, corn) and frozen celery + bell pepper mix. Go into all three bulk meals.</p>
+    </div>
+    <div class="panel">
+      <h3>Bulk protein</h3>
+      <p>Pre-diced, pre-cooked meat. Mix into the bulk meal, or keep a separate freezer batch (teriyaki / honey-garlic beef) to turn simple food into a proper meal.</p>
+    </div>
+  </div>
+</section>
+
+<section aria-labelledby="simple-h">
+  <h2 id="simple-h">Simple foods</h2>
+  <p class="hint">Your third option when you want something different. No extra cooking obligation.</p>
+  <div class="simple">
+    <div>
+      <h3>Quick savoury</h3>
+      <ul><li>Indomie / noodles + 1 to 2 hotdogs</li><li>Indomie / noodles + egg</li><li>Hotdog + egg</li><li>Tuna + crackers / toast</li><li>Egg + potato</li></ul>
+    </div>
+    <div>
+      <h3>Fruit</h3>
+      <ul><li>Apple</li><li>Orange</li><li>Banana</li></ul>
+    </div>
+    <div>
+      <h3>Drink</h3>
+      <ul><li>Frozen pineapple blended with water</li><li>Other smoothie additions later, if wanted</li></ul>
+    </div>
+  </div>
+</section>
+
+<section aria-labelledby="layers-h">
+  <h2 id="layers-h">Four layers</h2>
+  <div class="layers">
+    <div class="layer l-main"><h3>Main bulk</h3><p>Rice / Spaghetti</p></div>
+    <div class="layer l-sup"><h3>Supporting bulk</h3><p>Potato porridge</p></div>
+    <div class="layer l-pro"><h3>Protein</h3><p>Pre-diced freezer meat</p></div>
+    <div class="layer l-quick"><h3>Quick option</h3><p>Noodles, hotdog, egg or tuna, plus fruit / pineapple</p></div>
+  </div>
+</section>
+
+<section aria-labelledby="stock-h">
+  <div class="stock-head">
+    <h2 id="stock-h">Restock check</h2>
+    <button class="reset" id="reset" type="button">Clear checks</button>
+  </div>
+  <p class="hint">Tick what you have. Ticks stay on this device.</p>
+  <div class="stock" id="stock"></div>
+  <p class="stocknote">Sauce and spice base is already covered. No new sauces needed for variety.</p>
+</section>
+
+<section aria-labelledby="rules-h">
+  <h2 id="rules-h">Rules</h2>
+  <ul class="rules">
+    <li>Cook the next main bulk when the current one enters week 2.</li>
+    <li>Use potato to break up the main bulk meals.</li>
+    <li>Use simple foods whenever you want variety.</li>
+    <li>Freeze portions rather than keeping weeks of food in the fridge.</li>
+  </ul>
+</section>
+
+</main>
+
+<script>
+(function(){
+  var $=function(s){return document.querySelector(s)};
+  function save(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
+  function load(k,d){try{var r=localStorage.getItem(k);return r?JSON.parse(r):d}catch(e){return d}}
+
+  var palettes=[
+    {id:'ochre',n:'Ochre',d:'Warm, muted',c:['#D4A648','#C9705F','#9C88C8','#4FA89E']},
+    {id:'jewel',n:'Jewel',d:'Rich, saturated',c:['#E3B33F','#D95F84','#8A7EEA','#3DB8AE']}
+  ];
+  var root=document.documentElement,host=$('#cards'),cards=[];
+  var chosen=root.getAttribute('data-palette');
+  function paint(){cards.forEach(function(x){var on=x.id===chosen;x.el.setAttribute('aria-checked',String(on));x.el.tabIndex=on?0:-1})}
+  function choose(id){chosen=id;root.setAttribute('data-palette',id);save('mealplan-palette',id);paint()}
+  palettes.forEach(function(p,i){
+    var b=document.createElement('button');
+    b.type='button';b.className='pcard';b.setAttribute('role','radio');
+    p.c.forEach(function(c,j){b.style.setProperty('--c'+(j+1),c)});
+    b.innerHTML='<span class="pv"><i></i><i></i><i></i><b></b></span><span class="pn"><span>'+p.n+'</span><span class="tick" aria-hidden="true">\u2713</span></span><span class="ps">'+p.d+'</span>';
+    b.addEventListener('click',function(){choose(p.id)});
+    b.addEventListener('mouseenter',function(){root.setAttribute('data-palette',p.id)});
+    b.addEventListener('mouseleave',function(){root.setAttribute('data-palette',chosen)});
+    b.addEventListener('keydown',function(e){
+      var d=(e.key==='ArrowRight'||e.key==='ArrowDown')?1:(e.key==='ArrowLeft'||e.key==='ArrowUp')?-1:0;
+      if(!d)return;e.preventDefault();
+      var n=(i+d+palettes.length)%palettes.length;choose(palettes[n].id);cards[n].el.focus();
+    });
+    host.appendChild(b);cards.push({id:p.id,el:b});
+  });
+  paint();
+
+  var M={rice:{n:'Rice',c:'c-rice'},spag:{n:'Spaghetti',c:'c-spag'},pot:{n:'Potato',c:'c-pot'},simple:{n:'Simple',c:'c-simple'}};
+  var weeks=[
+    {eat:[{k:'rice',v:'A'}],cook:'Rice A',note:'One bulk meal only. Alternate bulk and simple until the next batch is ready.'},
+    {eat:[{k:'rice',v:'A'},{k:'spag',v:'B'}],cook:'Spaghetti B, as Rice A enters its second week',note:'Overlap week. Two mains means the least repetition.'},
+    {eat:[{k:'spag',v:'B'},{k:'pot',v:'C'}],cook:'Potato C, small batch',note:'Rice A is finished. Potato sits alongside spaghetti.'},
+    {eat:[{k:'spag',v:'B'},{k:'rice',v:'A2'}],cook:'Rice A2, as Spaghetti B enters its late stage',note:'Potato C finishes early in the week.'},
+    {eat:[{k:'rice',v:'A2'},{k:'pot',v:'C2'}],cook:'Potato C2, small batch',note:'Spaghetti B is finished. Next: cook Spaghetti B2 and repeat from week 2.'}
+  ];
+  var lanes=['Rice','Spaghetti','Potato'];
+  var bars=[
+    {lane:0,m:'rice',l:'A',from:1,to:2},
+    {lane:0,m:'rice',l:'A2',from:4,to:5},
+    {lane:1,m:'spag',l:'B',from:2,to:4},
+    {lane:2,m:'pot',l:'C',from:3,to:4},
+    {lane:2,m:'pot',l:'C2',from:5,to:5}
+  ];
+  var days=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+  var two=[['1','2'],['1','S'],['2','1'],['S','2'],['1','2'],['2','1'],['1','S']];
+
+  var rot=$('#rot'),wkBtns=[],cells=[],barEls=[];
+
+  weeks.forEach(function(w,i){
+    var b=document.createElement('button');
+    b.type='button';b.className='wkbtn';b.style.gridColumn=(i+2);b.style.gridRow=1;
+    b.textContent='Wk '+(i+1);b.setAttribute('aria-pressed','false');
+    b.addEventListener('click',function(){select(i+1)});
+    rot.appendChild(b);wkBtns.push(b);
+  });
+
+  lanes.forEach(function(name,li){
+    var row=li+2;
+    var lb=document.createElement('div');
+    lb.className='lane-label';lb.style.gridRow=row;lb.textContent=name;
+    rot.appendChild(lb);
+    for(var c=1;c<=5;c++){
+      var cell=document.createElement('div');
+      cell.className='cell';cell.style.gridRow=row;cell.style.gridColumn=(c+1);cell.dataset.w=c;
+      rot.appendChild(cell);cells.push(cell);
+    }
+  });
+
+  bars.forEach(function(b,i){
+    var el=document.createElement('div');
+    el.className='bar '+M[b.m].c;
+    el.style.gridRow=(b.lane+2);
+    el.style.gridColumn=(b.from+1)+' / '+(b.to+2);
+    el.style.animationDelay=(i*90)+'ms';
+    el.textContent=b.l;
+    el.setAttribute('aria-label',lanes[b.lane]+' '+b.l+', weeks '+b.from+' to '+b.to);
+    rot.appendChild(el);barEls.push(el);
+  });
+
+  function chip(k,label){return '<span class="chip '+M[k].c+'">'+(label||M[k].n)+'</span>'}
+
+  function select(n){
+    var w=weeks[n-1];
+    wkBtns.forEach(function(b,i){b.setAttribute('aria-pressed',String(i+1===n))});
+    cells.forEach(function(c){c.classList.toggle('sel',+c.dataset.w===n)});
+    barEls.forEach(function(el,i){el.classList.toggle('dim',!(n>=bars[i].from&&n<=bars[i].to))});
+
+    $('#wk-title').textContent='Week '+n;
+    $('#wk-eat').innerHTML=w.eat.map(function(e){return chip(e.k,M[e.k].n+' '+e.v)}).join('');
+    $('#wk-cook').textContent=w.cook;
+    $('#wk-note').textContent=w.note;
+
+    var two_=w.eat.length===2;
+    var leg=$('#legend');
+    if(two_){
+      leg.innerHTML='<span>Bulk 1</span>'+chip(w.eat[0].k)+'<span>Bulk 2</span>'+chip(w.eat[1].k)+'<span>Simple</span>'+chip('simple');
+    }else{
+      leg.innerHTML='<span>Only '+M[w.eat[0].k].n+' cooked: alternate bulk and simple.</span>';
+    }
+
+    var today=(new Date().getDay()+6)%7;
+    var html='';
+    days.forEach(function(d,i){
+      var slots=two_?two[i]:['1','S'];
+      var tds=slots.map(function(s){
+        if(s==='S')return '<td>'+chip('simple')+'</td>';
+        var k=w.eat[s==='1'?0:(two_?1:0)].k;
+        return '<td>'+chip(k)+'</td>';
+      }).join('');
+      html+='<tr'+(i===today?' class="today"':'')+'><th scope="row">'+d.slice(0,3)+'</th>'+tds+'</tr>';
+    });
+    $('#tt').innerHTML=html;
+    save('mealplan-week',n);
+  }
+
+  var saved=load('mealplan-week',2);
+  select(saved>=1&&saved<=5?saved:2);
+
+  /* restock list */
+  var groups=[
+    {t:'Always keep',i:['Rice','Spaghetti','Potatoes','Frozen mixed vegetables','Frozen celery / bell pepper','Bulk meat','Eggs','Tuna','Noodles','Hotdogs']},
+    {t:'Fresh fruit',i:['Apples','Oranges','Bananas']},
+    {t:'Frozen fruit',i:['Pineapple']},
+    {t:'Flavour stock',i:['Tomato products','Soy sauce','Dark soy','Oyster sauce','Teriyaki','Honey garlic','Nigerian seasoning / spices']}
+  ];
+  var checked=load('mealplan-checks',[]);
+  var stock=$('#stock');
+  groups.forEach(function(g,gi){
+    var col=document.createElement('div');
+    var h=document.createElement('h3');h.textContent=g.t;col.appendChild(h);
+    g.i.forEach(function(name,ii){
+      var id=gi+'-'+ii;
+      var lab=document.createElement('label');
+      var cb=document.createElement('input');cb.type='checkbox';cb.dataset.id=id;cb.checked=checked.indexOf(id)>-1;
+      var sp=document.createElement('span');sp.textContent=name;
+      cb.addEventListener('change',function(){
+        var i=checked.indexOf(id);
+        if(cb.checked&&i<0)checked.push(id);
+        if(!cb.checked&&i>-1)checked.splice(i,1);
+        save('mealplan-checks',checked);
+      });
+      lab.appendChild(cb);lab.appendChild(sp);col.appendChild(lab);
+    });
+    stock.appendChild(col);
+  });
+  $('#reset').addEventListener('click',function(){
+    checked=[];save('mealplan-checks',checked);
+    stock.querySelectorAll('input').forEach(function(c){c.checked=false});
+  });
+})();
+</script>
+</body>
+</html>
